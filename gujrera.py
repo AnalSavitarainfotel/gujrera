@@ -1,6 +1,9 @@
+import os
+
 import requests
 import json
-
+save_folder = "downloads"
+os.makedirs(save_folder, exist_ok=True)
 
 def fetch_gujrera_projects(district="Ahmedabad", project_type="Residential"):
 
@@ -178,6 +181,52 @@ def fetch_gujrera_projects(district="Ahmedabad", project_type="Residential"):
             'Total Area Constructed Till Date By Group Entity For Completed Projects(Sq Mtrs)': data3.get('entities_areaConstructed', {}),
 
         }
+        headers = {
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive',
+            'Referer': 'https://gujrera.gujarat.gov.in/',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+            'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'Cookie': '_ga=GA1.3.1927037471.1757590963',
+        }
+
+        response5 = requests.get(f'https://gujrera.gujarat.gov.in/form_five/get-formfive-records-till-date/{projectRegId}', headers=headers)
+        if response5.status_code != 200:
+            print(f"Failed to fetch data. Status Code: {response5.status_code}")
+            return
+        try:
+            data5 = response5.json()
+        except json.JSONDecodeError:
+            print("Failed to decode JSON response.")
+            return
+        for i in data5:
+            try:
+                pdfUid = i['pdfUid']
+            except:
+                pdfUid = ''
+            if not pdfUid:
+                print("No pdfUid found for record.")
+                continue
+            pdf_url = f'https://gujrera.gujarat.gov.in/vdms/download/{pdfUid}'
+            print(f"Downloading: {pdf_url}")
+
+            # Download the PDF
+            pdf_response = requests.get(pdf_url, headers=headers)
+
+            if pdf_response.status_code == 200:
+                filename = os.path.join(save_folder, f"{pdfUid}.pdf")
+                with open(filename, "wb") as f:
+                    f.write(pdf_response.content)
+
+                print(f"PDF saved as {filename}")
+            else:
+                print(f"Failed to download PDF for {pdfUid}. Status Code: {pdf_response.status_code}")
 
         item = {
             "ProjectDetails": basic_details,
@@ -187,10 +236,11 @@ def fetch_gujrera_projects(district="Ahmedabad", project_type="Residential"):
             "Agent":Agent,            "assosiate":assosiate,
             "Signatory Details":authorizedSignatory,
             "Promoter Details":Promoters,
+            "pdf_url":pdf_url,
         }
         results.append(item)
         print(results)
-        with open('gujrera_Residential_ahemadabad.json','w') as file:
+        with open('gujrera_Residential_ahemadabad_1.json','w') as file:
             file.write(json.dumps(results,indent=2))
 
 if __name__ == "__main__":
